@@ -1,12 +1,13 @@
 "use server";
 
-import { updateTag } from "next/cache";
+import {refresh, updateTag} from "next/cache";
 import { redirect } from "next/navigation";
-import { updatePizzaPrices } from "@/lib/admin-data";
+import {getOrderStatus, setOrderStatus, updatePizzaPrices} from "@/lib/admin-data";
 import { pizzaExists } from "@/lib/data";
 import { shouldFail, simulateLatency } from "@/lib/demo";
 import { parsePrice } from "@/lib/format";
 import type { PizzaSize } from "@/lib/types";
+import {canTransition, isOrderStatus, STATUS_LABELS} from "@/lib/order";
 
 const SIZES: PizzaSize[] = ["S", "M", "L"];
 
@@ -58,4 +59,40 @@ export async function updatePricesAction(
     // expire them now so customers see the new price on their next request
     updateTag("menu");
     redirect(`/admin/products?updated=${id}`);
+}
+
+export type StatusFormState = { error: string } | null;
+
+export async function updateOrderStatusAction(
+    _prev: StatusFormState,
+    formData: FormData,
+): Promise<StatusFormState> {
+    const orderId = Number(formData.get("orderId"));
+    const next = formData.get("status");
+
+    if (!Number.isInteger(orderId) || orderId <= 0) {
+        return { error: "ID order tidak valid." };
+    }
+    if (typeof next !== "string" || !isOrderStatus(next)) {
+        return { error: "Status tujuan tidak dikenal." };
+    }
+
+    const current = await getOrderStatus(orderId);
+    if (current === null) {
+        return { error: "Order tidak ditemukan." };
+    }
+    if (!canTransition(current, next)) {
+        return {
+            error: `Perubahan dari "${STATUS_LABELS[current]}" ke "${STATUS_LABELS[next]}" tidak diizinkan.`,
+        };
+    }
+
+    await simulateLatency("write");
+    if (await shouldFail()) {
+        return { error: "Gagal menyimpan. Coba lagi." };
+    }
+
+    await setOrderStatus(orderId, next);
+    refresh();
+    return null;
 }

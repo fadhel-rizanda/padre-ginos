@@ -1,64 +1,79 @@
-import Image from "next/image";
 import Link from "next/link";
-import {notFound} from "next/navigation";
-import {Suspense} from "react";
-import {getSalesBySize} from "@/lib/admin-data";
-import {getPizza} from "@/lib/data";
-import PriceForm from "@/components/admin/PriceForm";
+import { notFound } from "next/navigation";
+import { Suspense } from "react";
+import { getOrder } from "@/lib/admin-data";
+import { formatPrice } from "@/lib/format";
+import {OrderStatus, STATUS_LABELS, STATUS_STYLES} from "@/lib/order";
+import StatusActions from "@/app/admin/StatusActions";
 
-export default async function ProductDetailPage({
-                                                    params,
-                                                }: PageProps<"/admin/products/[id]">) {
-    const {id} = await params;
-    const pizza = await getPizza(id);
-    if (!pizza) notFound();
-
-    return (
-        <section className="max-w-3xl">
-            <Link href="/admin/products" className="text-sm text-brand hover:underline">
-                ← Semua produk
-            </Link>
-            <div className="mt-4 flex items-center gap-5">
-                <Image
-                    src={pizza.image}
-                    alt={pizza.name}
-                    width={96}
-                    height={96}
-                    className="size-24 rounded-xl object-cover"
-                />
-                <div>
-                    <h1 className="text-3xl font-black">{pizza.name}</h1>
-                    <p className="text-ink/60">
-                        {pizza.category} ·{" "}
-                        <Link href={`/pizza/${pizza.id}`} className="underline">
-                            lihat di toko
-                        </Link>
-                    </p>
-                </div>
-            </div>
-            <p className="mt-4">{pizza.description}</p>
-
-            <h2 className="mt-8 text-lg font-bold">Harga</h2>
-            <PriceForm pizzaId={pizza.id} sizes={pizza.sizes}/>
-
-            <h2 className="mt-8 text-lg font-bold">Terjual per ukuran</h2>
-            <Suspense fallback={<p className="mt-2 animate-pulse text-ink/60">Menghitung…</p>}>
-                <SalesBySize id={pizza.id}/>
-            </Suspense>
-        </section>
-    );
+interface PageProps {
+    params: Promise<{
+        id: string;
+    }>;
 }
 
-// Live numbers: not cached, streamed after the product info
-async function SalesBySize({id}: { id: string }) {
-    const sales = await getSalesBySize(id);
+export default async function OrderDetailPage({ params }: PageProps) {
+    const { id } = await params;
+
+    const orderId = Number(id);
+    if (!Number.isInteger(orderId) || orderId <= 0) {
+        notFound();
+    }
+
+    const order = await getOrder(orderId);
+    if (!order) {
+        notFound();
+    }
+
     return (
-        <ul className="mt-2 flex gap-3">
-            {sales.map((s) => (
-                <li key={s.size} className="rounded-xl bg-white px-4 py-3 shadow-sm">
-                    <span className="font-semibold">{s.size}</span>: {s.sold.toLocaleString("en-US")}
-                </li>
-            ))}
-        </ul>
+        <section className="max-w-3xl space-y-6">
+            <div>
+                <Link href="/admin/orders" className="text-sm text-brand hover:underline">
+                    ← Semua order
+                </Link>
+                <div className="mt-2 flex items-center justify-between">
+                    <h1 className="text-3xl font-black">Order #{order.id}</h1>
+                    <span
+                        className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${
+                            STATUS_STYLES[order.status as keyof typeof STATUS_STYLES] ?? "bg-stone-100 text-stone-800"
+                        }`}
+                    >
+                        {STATUS_LABELS[order.status as keyof typeof STATUS_LABELS] ?? order.status}
+                    </span>
+                </div>
+                <p className="mt-1 text-ink/60">
+                    Waktu pesanan: {order.date} {order.time}
+                </p>
+            </div>
+
+            <div className="rounded-xl bg-white p-6 shadow-sm">
+                <h2 className="text-lg font-bold mb-4">Daftar Pizza</h2>
+                <ul className="divide-y divide-black/5">
+                    {order.lines.map((line, index) => (
+                        <li key={index} className="py-3 flex items-center justify-between">
+                            <div>
+                                <Link
+                                    href={`/admin/products/${line.pizzaId}`}
+                                    className="font-semibold text-brand hover:underline"
+                                >
+                                    {line.name}
+                                </Link>
+                                <p className="text-xs text-ink/60">Ukuran: {line.size} · Jumlah: {line.quantity}</p>
+                            </div>
+                            <span className="font-medium">{formatPrice(line.price * line.quantity)}</span>
+                        </li>
+                    ))}
+                </ul>
+                <div className="mt-6 border-t border-black/10 pt-4 flex items-center justify-between text-base font-bold">
+                    <span>Total Pembayaran</span>
+                    <span className="text-lg text-brand">{formatPrice(order.total)}</span>
+                </div>
+            </div>
+
+            <div className="rounded-xl bg-white p-6 shadow-sm">
+                <h2 className="mb-3 text-lg font-bold">Ubah Status</h2>
+                <StatusActions orderId={order.id} status={order.status as OrderStatus} />
+            </div>
+        </section>
     );
 }

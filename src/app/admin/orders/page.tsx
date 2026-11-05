@@ -83,12 +83,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
                 {orders.map((o) => (
                     <tr key={o.id} className="border-t border-black/5">
                         <td className="px-4 py-2 font-medium">
-                            <Link
-                                href={`/admin/orders/${o.id}`}
-                                className="text-brand hover:underline"
-                            >
-                                #{o.id}
-                            </Link>
+                            {o.id}
                         </td>
                         <td className="px-4 py-2 text-ink/70">
                             {o.date} {o.time}
