@@ -44,4 +44,4 @@ next-env.d.ts
 /data/pizza.sqlite
 /data/pizza.sqlite-journal
 
-.idea
+/.idea
