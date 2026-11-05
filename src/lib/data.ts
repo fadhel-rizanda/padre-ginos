@@ -42,6 +42,7 @@ export async function getPizzas(): Promise<Pizza[]> {
 }
 
 export async function getPizza(id: string): Promise<Pizza | null> {
+  "use cache";
   await simulateLatency("read");
   const row = await get<PizzaRow>(
     `SELECT ${PIZZA_COLUMNS} FROM pizza_types WHERE pizza_type_id = ?`,

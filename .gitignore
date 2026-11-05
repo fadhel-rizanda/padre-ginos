@@ -43,3 +43,5 @@ next-env.d.ts
 # local database (restored from data/pizza.seed.sqlite)
 /data/pizza.sqlite
 /data/pizza.sqlite-journal
+
+/idea
